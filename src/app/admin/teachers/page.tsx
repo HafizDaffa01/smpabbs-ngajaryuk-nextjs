@@ -1,6 +1,7 @@
 import { createClient } from '@/utils/supabase/server'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
+import { PageHeader } from '@/components/ui/page-header'
 import TeacherTable from './teacher-table'
 
 export const metadata = {
@@ -13,17 +14,17 @@ export default async function AdminTeachersPage() {
   const supabase = createClient(cookieStore)
 
   const {
-    data: { session },
-  } = await supabase.auth.getSession()
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  if (!session) {
+  if (!user) {
     redirect('/login')
   }
 
   const { data: profile } = await supabase
     .from('profiles')
     .select('is_admin')
-    .eq('id', session.user.id)
+    .eq('id', user.id)
     .single()
 
   if (!profile?.is_admin) {
@@ -38,24 +39,18 @@ export default async function AdminTeachersPage() {
     .order('name')
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-black">
-      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="rounded-lg bg-white p-6 shadow-md dark:bg-zinc-900">
-          <div className="mb-6 flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
-              Manajemen Guru
-            </h1>
-            <a
-              href="/admin"
-              className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-            >
-              ← Kembali
-            </a>
-          </div>
+    <div className="flex flex-col gap-5">
+      <PageHeader
+        title="Manajemen Guru"
+        crumbs={[
+          { label: 'Beranda', href: '/' },
+          { label: 'Admin', href: '/admin' },
+          { label: 'Guru' },
+        ]}
+        description="Tambah, ubah, dan hapus akun guru. Perubahan role berlaku langsung pada halaman masuk guru."
+      />
 
-          <TeacherTable teachers={teachers ?? []} />
-        </div>
-      </main>
+      <TeacherTable teachers={teachers ?? []} />
     </div>
   )
 }

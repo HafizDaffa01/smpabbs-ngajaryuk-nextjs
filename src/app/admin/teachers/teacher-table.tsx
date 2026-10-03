@@ -1,6 +1,41 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { MoreHorizontal, Pencil, ShieldCheck, Trash2 } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { Avatar } from '@/components/ui/avatar'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import { Dialog } from '@/components/ui/dialog'
+import {
+  Dropdown,
+  DropdownContent,
+  DropdownItem,
+  DropdownLabel,
+  DropdownSeparator,
+  DropdownTrigger,
+} from '@/components/ui/dropdown'
+import { EmptyState } from '@/components/ui/empty-state'
+import { FeedbackBanner } from '@/components/ui/feedback-banner'
+import { Field, Input, Label, Select } from '@/components/ui/input'
+import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  TableScroll,
+} from '@/components/ui/table'
 
 type Teacher = {
   id: string
@@ -15,15 +50,44 @@ interface TeacherTableProps {
   teachers: Teacher[]
 }
 
+type MapelFilter = 'all' | 'assigned' | 'unassigned'
+
+function hasMapel(teacher: Teacher): boolean {
+  return Object.keys(teacher.mapel ?? {}).length > 0
+}
+
+function mapelCount(teacher: Teacher): number {
+  return Object.values(teacher.mapel ?? {}).reduce((sum, list) => sum + list.length, 0)
+}
+
 export default function TeacherTable({ teachers }: TeacherTableProps) {
   const [loading, setLoading] = useState<string | null>(null)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [showAddForm, setShowAddForm] = useState(false)
   const [editingTeacher, setEditingTeacher] = useState<Teacher | null>(null)
+  const [deletingTeacher, setDeletingTeacher] = useState<Teacher | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [mapelFilter, setMapelFilter] = useState<MapelFilter>('all')
+
+  const filteredTeachers = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase()
+
+    return teachers.filter((teacher) => {
+      const matchesQuery =
+        !query ||
+        teacher.name.toLowerCase().includes(query) ||
+        teacher.email?.toLowerCase().includes(query) ||
+        teacher.phone_num?.includes(query)
+
+      const matchesMapel =
+        mapelFilter === 'all' ||
+        (mapelFilter === 'assigned' ? hasMapel(teacher) : !hasMapel(teacher))
+
+      return matchesQuery && matchesMapel
+    })
+  }, [teachers, searchQuery, mapelFilter])
 
   async function handleDeleteTeacher(id: string) {
-    if (!confirm('Apakah Anda yakin ingin menghapus guru ini?')) return
-
     setLoading(id)
     setMessage(null)
 
@@ -39,6 +103,7 @@ export default function TeacherTable({ teachers }: TeacherTableProps) {
       }
 
       setMessage({ type: 'success', text: 'Guru berhasil dihapus' })
+      setDeletingTeacher(null)
       window.location.reload()
     } catch (err) {
       setMessage({
@@ -77,133 +142,230 @@ export default function TeacherTable({ teachers }: TeacherTableProps) {
     }
   }
 
-  async function handleRemoveAdmin(id: string) {
-    setLoading(id)
-    setMessage(null)
-
-    try {
-      const response = await fetch(`/api/admin/teachers/${id}/remove-admin`, {
-        method: 'PUT',
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Gagal mengubah role')
-      }
-
-      setMessage({ type: 'success', text: 'Admin berhasil dijadikan guru' })
-      window.location.reload()
-    } catch (err) {
-      setMessage({
-        type: 'error',
-        text: err instanceof Error ? err.message : 'Terjadi kesalahan',
-      })
-    } finally {
-      setLoading(null)
-    }
-  }
-
   return (
-    <div>
-      {message && (
-        <div
-          className={`mb-4 rounded-md p-3 text-sm ${
-            message.type === 'success'
-              ? 'bg-green-50 text-green-800 dark:bg-green-900/30 dark:text-green-200'
-              : 'bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-200'
-          }`}
-        >
+    <div className="flex flex-col gap-4">
+      {message ? (
+        <FeedbackBanner tone={message.type} onDismiss={() => setMessage(null)}>
           {message.text}
-        </div>
-      )}
+        </FeedbackBanner>
+      ) : null}
 
-      <div className="mb-4 flex justify-end">
-        <button
-          onClick={() => setShowAddForm(!showAddForm)}
-          className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
-        >
-          {showAddForm ? 'Batal' : 'Tambah Guru'}
-        </button>
-      </div>
+      {/* Filter + actions */}
+      <Card>
+        <CardHeader>
+          <div className="min-w-0">
+            <CardTitle>Daftar guru</CardTitle>
+            <CardDescription>
+              {filteredTeachers.length} dari {teachers.length} guru ditampilkan
+            </CardDescription>
+          </div>
 
-      {showAddForm && (
-        <AddTeacherForm onClose={() => setShowAddForm(false)} />
-      )}
+          <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-end">
+            <div className="w-full sm:w-56">
+              <Label htmlFor="teacherSearch">Cari guru</Label>
+              <Input
+                id="teacherSearch"
+                type="text"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Nama, email, atau nomor…"
+                className="mt-1.5"
+              />
+            </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse border border-zinc-300 dark:border-zinc-700">
-          <thead>
-            <tr className="bg-zinc-100 dark:bg-zinc-800">
-              <th className="border border-zinc-300 px-4 py-2 text-left text-sm font-medium text-zinc-700 dark:border-zinc-700 dark:text-zinc-300">
-                Nama
-              </th>
-              <th className="border border-zinc-300 px-4 py-2 text-left text-sm font-medium text-zinc-700 dark:border-zinc-700 dark:text-zinc-300">
-                Email
-              </th>
-              <th className="border border-zinc-300 px-4 py-2 text-left text-sm font-medium text-zinc-700 dark:border-zinc-700 dark:text-zinc-300">
-                No. WhatsApp
-              </th>
-              <th className="border border-zinc-300 px-4 py-2 text-center text-sm font-medium text-zinc-700 dark:border-zinc-700 dark:text-zinc-300">
-                Aksi
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {teachers.length === 0 && (
-              <tr>
-                <td colSpan={4} className="border border-zinc-300 px-4 py-8 text-center text-sm text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">
-                  Belum ada data guru.
-                </td>
-              </tr>
-            )}
-            {teachers.map((teacher) => (
-              <tr key={teacher.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
-                <td className="border border-zinc-300 px-4 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:text-zinc-100">
-                  {teacher.name}
-                </td>
-                <td className="border border-zinc-300 px-4 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:text-zinc-100">
-                  {teacher.email || '-'}
-                </td>
-                <td className="border border-zinc-300 px-4 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:text-zinc-100">
-                  {teacher.phone_num || '-'}
-                </td>
-                <td className="border border-zinc-300 px-4 py-2 text-center dark:border-zinc-700">
-                  <div className="flex flex-wrap justify-center gap-2">
-                    <button
-                      onClick={() => setEditingTeacher(teacher)}
-                      className="rounded-md bg-blue-600 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-blue-700"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleMakeAdmin(teacher.id)}
-                      disabled={loading === teacher.id}
-                      className="rounded-md bg-green-600 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-green-700 disabled:opacity-50"
-                    >
-                      Jadikan Admin
-                    </button>
-                    <button
-                      onClick={() => handleDeleteTeacher(teacher.id)}
-                      disabled={loading === teacher.id}
-                      className="rounded-md bg-red-600 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
-                    >
-                      Hapus
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            <div className="w-full sm:w-48">
+              <Label htmlFor="mapelFilter">Mapel</Label>
+              <div className="mt-1.5">
+                <Select
+                  id="mapelFilter"
+                  value={mapelFilter}
+                  onChange={(event) => setMapelFilter(event.target.value as MapelFilter)}
+                >
+                  <option value="all">Semua</option>
+                  <option value="assigned">Sudah ada mapel</option>
+                  <option value="unassigned">Belum ada mapel</option>
+                </Select>
+              </div>
+            </div>
 
-      {editingTeacher && (
-        <EditTeacherModal
+            <Button onClick={() => setShowAddForm(!showAddForm)} aria-expanded={showAddForm}>
+              {showAddForm ? 'Batal' : 'Tambah Guru'}
+            </Button>
+          </div>
+        </CardHeader>
+
+        <CardContent>
+          {showAddForm ? (
+            <AddTeacherForm onClose={() => setShowAddForm(false)} />
+          ) : filteredTeachers.length === 0 ? (
+            <EmptyState
+              title={
+                searchQuery || mapelFilter !== 'all'
+                  ? 'Tidak ada guru yang cocok dengan pencarian.'
+                  : 'Belum ada data guru.'
+              }
+              description={
+                searchQuery || mapelFilter !== 'all'
+                  ? 'Coba kata kunci lain atau setel ulang filter mapel.'
+                  : 'Gunakan tombol “Tambah Guru” untuk membuat akun pertama.'
+              }
+            />
+          ) : (
+            <TableScroll label="Daftar guru" maxHeight="34rem">
+              {loading ? (
+                <p role="status" className="sr-only">
+                  Memproses permintaan…
+                </p>
+              ) : null}
+              <Table className="min-w-[680px]">
+                <TableCaption>Daftar akun guru</TableCaption>
+                <TableHeader>
+                  <TableRow className="hover:bg-surface-sunken">
+                    <TableHead className="w-12">No</TableHead>
+                    <TableHead>Guru</TableHead>
+                    <TableHead>No. WhatsApp</TableHead>
+                    <TableHead>Mapel</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead className="w-16 text-right">Aksi</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {/* While a row action is in flight the rows are replaced by
+                      placeholders of the same height, so nothing jumps. */}
+                  {loading ? (
+                    Array.from({ length: 4 }).map((_, index) => (
+                      <TableRow key={`skeleton-${index}`} className="hover:bg-surface-sunken">
+                        <TableCell colSpan={6}>
+                          <Skeleton className="h-6 w-full" />
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    filteredTeachers.map((teacher, index) => {
+                      const busy = loading === teacher.id
+                      const subjects = mapelCount(teacher)
+
+                      return (
+                        <TableRow key={teacher.id}>
+                          <TableCell className="text-text-tertiary">{index + 1}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2.5">
+                              <Avatar name={teacher.name} size="sm" />
+                              <div className="min-w-0">
+                                <p className="truncate font-semibold text-text-primary">
+                                  {teacher.name}
+                                </p>
+                                <p className="truncate text-[13px] text-text-tertiary">
+                                  {teacher.email || '-'}
+                                </p>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>{teacher.phone_num || '-'}</TableCell>
+                          <TableCell>
+                            <Badge variant={hasMapel(teacher) ? 'info' : 'neutral'}>
+                              {hasMapel(teacher) ? `${subjects} mapel` : 'Belum ada mapel'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={teacher.is_admin ? 'accent' : 'success'}>
+                              {teacher.is_admin ? 'Admin' : 'Guru'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Dropdown align="end">
+                              <DropdownTrigger
+                                disabled={busy}
+                                aria-label={`Aksi untuk ${teacher.name}`}
+                                className={cn(
+                                  'focus-ring inline-flex size-8 items-center justify-center rounded-sm',
+                                  'border border-transparent text-text-secondary',
+                                  'transition-colors duration-150 ease-out',
+                                  'hover:border-border-default hover:bg-surface-hover hover:text-text-primary',
+                                  'disabled:pointer-events-none disabled:opacity-55'
+                                )}
+                              >
+                                <MoreHorizontal aria-hidden className="size-4" />
+                              </DropdownTrigger>
+
+                              <DropdownContent>
+                                <DropdownLabel>{teacher.name}</DropdownLabel>
+                                <DropdownSeparator />
+                                <DropdownItem
+                                  onClick={() => setEditingTeacher(teacher)}
+                                  disabled={busy}
+                                >
+                                  <Pencil aria-hidden className="size-4 shrink-0" />
+                                  Edit
+                                </DropdownItem>
+                                <DropdownItem
+                                  onClick={() => handleMakeAdmin(teacher.id)}
+                                  disabled={busy}
+                                >
+                                  <ShieldCheck aria-hidden className="size-4 shrink-0" />
+                                  Jadikan Admin
+                                </DropdownItem>
+                                <DropdownSeparator />
+                                <DropdownItem
+                                  onClick={() => setDeletingTeacher(teacher)}
+                                  disabled={busy}
+                                  className="text-danger-text hover:bg-danger-bg hover:text-danger-text"
+                                >
+                                  <Trash2 aria-hidden className="size-4 shrink-0" />
+                                  Hapus
+                                </DropdownItem>
+                              </DropdownContent>
+                            </Dropdown>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </TableScroll>
+          )}
+        </CardContent>
+      </Card>
+
+      {editingTeacher ? (
+        <EditTeacherDialog
           teacher={editingTeacher}
           onClose={() => setEditingTeacher(null)}
         />
-      )}
+      ) : null}
+
+      <Dialog
+        open={deletingTeacher !== null}
+        onOpenChange={(open) => !open && setDeletingTeacher(null)}
+        size="sm"
+        title="Hapus guru"
+        description="Akun dan seluruh data absensinya akan dihapus permanen."
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setDeletingTeacher(null)}>
+              Batal
+            </Button>
+            <Button
+              variant="danger"
+              loading={loading === deletingTeacher?.id}
+              onClick={() => deletingTeacher && handleDeleteTeacher(deletingTeacher.id)}
+            >
+              Hapus
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-text-secondary">
+          Apakah Anda yakin ingin menghapus guru ini?
+        </p>
+        {deletingTeacher ? (
+          <p className="mt-2 flex items-center gap-2 text-sm font-semibold text-text-primary">
+            <Avatar name={deletingTeacher.name} size="sm" />
+            {deletingTeacher.name}
+          </p>
+        ) : null}
+      </Dialog>
     </div>
   )
 }
@@ -248,85 +410,46 @@ function AddTeacherForm({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="mb-6 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
-      <h3 className="mb-4 font-semibold text-zinc-900 dark:text-zinc-50">
-        Tambah Guru Baru
-      </h3>
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        {error && (
-          <div className="rounded-md bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">
-            {error}
-          </div>
-        )}
-        <div>
-          <label htmlFor="name" className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            Nama
-          </label>
-          <input
-            id="name"
-            name="name"
-            type="text"
-            required
-            className="w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-          />
-        </div>
-        <div>
-          <label htmlFor="email" className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            Email
-          </label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            required
-            className="w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-          />
-        </div>
-        <div>
-          <label htmlFor="password" className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            Password
-          </label>
-          <input
-            id="password"
-            name="password"
-            type="text"
-            required
-            className="w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-          />
-        </div>
-        <div>
-          <label htmlFor="phone_num" className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            No. WhatsApp (opsional)
-          </label>
-          <input
-            id="phone_num"
-            name="phone_num"
-            type="tel"
-            className="w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-          />
-        </div>
-        <div className="flex gap-2">
-          <button
-            type="submit"
-            disabled={loading}
-            className="flex-1 rounded-md bg-black px-4 py-2 font-medium text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
-          >
-            {loading ? 'Menyimpan...' : 'Simpan'}
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex-1 rounded-md bg-zinc-200 px-4 py-2 font-medium text-zinc-800 transition-colors hover:bg-zinc-300 dark:bg-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-600"
-          >
-            Batal
-          </button>
-        </div>
-      </form>
-    </div>
+    <form
+      onSubmit={handleSubmit}
+      className="mb-4 flex flex-col gap-4 rounded-md border border-border-subtle bg-surface-sunken p-4"
+    >
+      {error ? <FeedbackBanner tone="error">{error}</FeedbackBanner> : null}
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Field id="name" label="Nama" required>
+          {(field) => <Input {...field} name="name" type="text" required autoFocus />}
+        </Field>
+        <Field id="email" label="Email" required>
+          {(field) => <Input {...field} name="email" type="email" required />}
+        </Field>
+        <Field id="password" label="Password" required>
+          {(field) => <Input {...field} name="password" type="text" required />}
+        </Field>
+        <Field id="phone_num" label="No. WhatsApp (opsional)">
+          {(field) => <Input {...field} name="phone_num" type="tel" />}
+        </Field>
+      </div>
+
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <Button type="submit" loading={loading} loadingText="Menyimpan...">
+          Simpan
+        </Button>
+        <Button variant="secondary" onClick={onClose}>
+          Batal
+        </Button>
+      </div>
+    </form>
   )
 }
 
-function EditTeacherModal({ teacher, onClose }: { teacher: Teacher; onClose: () => void }) {
+function EditTeacherDialog({
+  teacher,
+  onClose,
+}: {
+  teacher: Teacher
+  onClose: () => void
+}) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -371,85 +494,53 @@ function EditTeacherModal({ teacher, onClose }: { teacher: Teacher; onClose: () 
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-md dark:bg-zinc-900">
-        <h3 className="mb-4 font-semibold text-zinc-900 dark:text-zinc-50">
-          Edit Guru
-        </h3>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          {error && (
-            <div className="rounded-md bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">
-              {error}
-            </div>
+    <Dialog
+      open
+      onOpenChange={(next) => !next && onClose()}
+      title="Edit Guru"
+      description="Perubahan langsung tersimpan pada profil guru."
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            Batal
+          </Button>
+          <Button
+            type="submit"
+            form="edit-teacher-form"
+            loading={loading}
+            loadingText="Menyimpan..."
+          >
+            Simpan
+          </Button>
+        </>
+      }
+    >
+      <form id="edit-teacher-form" onSubmit={handleSubmit} className="flex flex-col gap-4">
+        {error ? <FeedbackBanner tone="error">{error}</FeedbackBanner> : null}
+
+        <Field id="name" label="Nama" required>
+          {(field) => (
+            <Input {...field} name="name" type="text" required defaultValue={teacher.name} autoFocus />
           )}
-          <div>
-            <label htmlFor="name" className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              Nama
-            </label>
-            <input
-              id="name"
-              name="name"
-              type="text"
-              required
-              defaultValue={teacher.name}
-              className="w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-            />
-          </div>
-          <div>
-            <label htmlFor="email" className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              Email
-            </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              required
-              defaultValue={teacher.email || ''}
-              className="w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-            />
-          </div>
-          <div>
-            <label htmlFor="phone_num" className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              No. WhatsApp
-            </label>
-            <input
-              id="phone_num"
-              name="phone_num"
-              type="tel"
-              defaultValue={teacher.phone_num || ''}
-              className="w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-            />
-          </div>
-          <div>
-            <label htmlFor="password" className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              Password Baru (opsional)
-            </label>
-            <input
-              id="password"
-              name="password"
-              type="text"
-              className="w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-              placeholder="Kosongkan jika tidak ingin mengubah"
-            />
-          </div>
-          <div className="flex gap-2">
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex-1 rounded-md bg-black px-4 py-2 font-medium text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
-            >
-              {loading ? 'Menyimpan...' : 'Simpan'}
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 rounded-md bg-zinc-200 px-4 py-2 font-medium text-zinc-800 transition-colors hover:bg-zinc-300 dark:bg-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-600"
-            >
-              Batal
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        </Field>
+        <Field id="email" label="Email" required>
+          {(field) => (
+            <Input {...field} name="email" type="email" required defaultValue={teacher.email || ''} />
+          )}
+        </Field>
+        <Field id="phone_num" label="No. WhatsApp">
+          {(field) => (
+            <Input {...field} name="phone_num" type="tel" defaultValue={teacher.phone_num || ''} />
+          )}
+        </Field>
+        <Field
+          id="password"
+          label="Password Baru (opsional)"
+          hint="Kosongkan jika tidak ingin mengubah"
+        >
+          {(field) => <Input {...field} name="password" type="text" />}
+        </Field>
+      </form>
+    </Dialog>
   )
 }

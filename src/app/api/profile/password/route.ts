@@ -8,10 +8,10 @@ export async function PUT(request: NextRequest) {
     const supabase = createClient(cookieStore)
 
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
+      data: { user },
+    } = await supabase.auth.getUser()
 
-    if (!session) {
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -24,9 +24,29 @@ export async function PUT(request: NextRequest) {
       )
     }
 
+    // Validate new password length
+    if (typeof password !== 'string' || password.length < 8) {
+      return NextResponse.json(
+        { error: 'Password baru minimal 8 karakter' },
+        { status: 400 }
+      )
+    }
+
+    // Validate password complexity (at least one uppercase, one lowercase, one number)
+    const hasUpperCase = /[A-Z]/.test(password)
+    const hasLowerCase = /[a-z]/.test(password)
+    const hasNumber = /[0-9]/.test(password)
+
+    if (!hasUpperCase || !hasLowerCase || !hasNumber) {
+      return NextResponse.json(
+        { error: 'Password harus mengandung huruf besar, huruf kecil, dan angka' },
+        { status: 400 }
+      )
+    }
+
     // Verify current password by attempting to sign in
     const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: session.user.email!,
+      email: user.email!,
       password: current_password,
     })
 

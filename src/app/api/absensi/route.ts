@@ -25,10 +25,10 @@ export async function POST(request: NextRequest) {
     const supabase = createClient(cookieStore)
 
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
+      data: { user },
+    } = await supabase.auth.getUser()
 
-    if (!session) {
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     const { data: existingAbsensi } = await supabase
       .from('absensis')
       .select('id, waktu')
-      .eq('user_id', session.user.id)
+      .eq('user_id', user.id)
       .gte('waktu', new Date(new Date().setHours(0, 0, 0, 0)).toISOString())
       .lt('waktu', new Date(new Date().setHours(23, 59, 59, 999)).toISOString())
       .maybeSingle()
@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
     const { data: profile } = await supabase
       .from('profiles')
       .select('name, phone_num')
-      .eq('id', session.user.id)
+      .eq('id', user.id)
       .single()
 
     if (!profile) {
@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
 
     // Save to database
     const { error: insertError } = await supabase.from('absensis').insert({
-      user_id: session.user.id,
+      user_id: user.id,
       nama: profile.name,
       unit: 'SMP ABBS Surakarta',
       lokasi,

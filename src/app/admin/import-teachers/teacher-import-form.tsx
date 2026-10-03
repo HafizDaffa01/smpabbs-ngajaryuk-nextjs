@@ -1,21 +1,58 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
+import { FileSpreadsheet, Info } from 'lucide-react'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Dropzone } from '@/components/ui/dropzone'
+import { FeedbackBanner } from '@/components/ui/feedback-banner'
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  TableScroll,
+} from '@/components/ui/table'
+
+interface PreviewRow {
+  nama: string
+  email: string
+  password: string
+  phone: string
+  mapel: string[]
+  format: 'A' | 'B' | null
+}
 
 export default function TeacherImportForm() {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
-  const [preview, setPreview] = useState<string | null>(null)
+  const [preview, setPreview] = useState<PreviewRow[] | null>(null)
+  const [format, setFormat] = useState<'A' | 'B' | null>(null)
+  const [fileName, setFileName] = useState<string | null>(null)
+  const [file, setFile] = useState<File | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handlePreview(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setLoading(true)
     setMessage(null)
+    setPreview(null)
+    setFormat(null)
 
     const formData = new FormData(event.currentTarget)
-    const file = formData.get('file') as File
+    const submitted = formData.get('file') as File
 
-    if (!file) {
+    if (!submitted) {
       setMessage({ type: 'error', text: 'Pilih file Excel terlebih dahulu' })
       setLoading(false)
       return
@@ -23,7 +60,7 @@ export default function TeacherImportForm() {
 
     try {
       const importFormData = new FormData()
-      importFormData.append('file', file)
+      importFormData.append('file', submitted)
 
       const response = await fetch('/api/admin/import-teachers', {
         method: 'POST',
@@ -40,9 +77,12 @@ export default function TeacherImportForm() {
         type: 'success',
         text: `Import berhasil! ${data.imported ?? 0} guru diimpor. Format: ${data.format ?? 'Unknown'}`,
       })
+      setFormat(data.format || null)
+      setFileName(submitted.name)
       if (event.target instanceof HTMLFormElement) {
         event.target.reset()
       }
+      setFile(null)
     } catch (err) {
       setMessage({
         type: 'error',
@@ -53,55 +93,204 @@ export default function TeacherImportForm() {
     }
   }
 
+  async function handleFileChange(nextFile: File | null) {
+    setFile(nextFile)
+    if (!nextFile) {
+      setPreview(null)
+      setFormat(null)
+      setFileName(null)
+      return
+    }
+
+    setLoading(true)
+    setMessage(null)
+    setPreview(null)
+    setFormat(null)
+
+    try {
+      const xlsx = await import('xlsx')
+      const buffer = await nextFile.arrayBuffer()
+      const workbook = xlsx.read(buffer, { type: 'buffer' })
+      const sheet = workbook.Sheets[workbook.SheetNames[0]]
+      const jsonData = xlsx.utils.sheet_to_json<unknown[]>(sheet, { header: 1 })
+
+      if (jsonData.length === 0) {
+        setMessage({ type: 'error', text: 'File Excel kosong' })
+        setLoading(false)
+        return
+      }
+
+      const headers = (jsonData[0] as unknown[]).map((h) => String(h ?? '').toLowerCase().trim())
+      const rows = (jsonData.slice(1) as unknown[][]).map((row) => {
+        const obj: { [key: string]: unknown } = {}
+        headers.forEach((h, i) => {
+          obj[h] = row[i]
+        })
+        return obj
+      }).filter((row): row is { [key: string]: unknown } => Boolean(row.nama || row.name))
+
+      // Detect format
+      const hasRombel = headers.some((h) => /^[789][a-z]?$/i.test(h))
+      const requiredA = ['math', 'ipa', 'ips', 'pkn', 'ict', 'pjok', 'indonesian', 'english', 'pai', 'quran']
+      const matchCount = requiredA.filter((req) => headers.some((h) => h.toLowerCase().includes(req))).length
+      const detectedFormat = hasRombel ? 'B' : matchCount >= 2 ? 'A' : null
+
+      setFormat(detectedFormat)
+
+      const previewRows: PreviewRow[] = rows.slice(0, 10).map((row) => {
+        const nama = String(row.nama ?? row.name ?? '').trim()
+        const email = String(row.email ?? '').trim()
+        const password = String(row.password ?? '').trim()
+        const phone = String(
+          row.hp ?? row.telepon ?? row.wa ?? row.whatsapp ?? row.phone ?? row.num ?? row.number ?? ''
+        ).trim()
+
+        const mapel: string[] = []
+        if (detectedFormat === 'B') {
+          for (const [key, val] of Object.entries(row)) {
+            if (/^[789][a-z]?$/i.test(key) && val) {
+              const items = String(val).split(/\s*(?:&|\+|dan)\s*/i)
+              mapel.push(...items.filter(Boolean))
+            }
+          }
+        } else if (detectedFormat === 'A') {
+          for (const [key, val] of Object.entries(row)) {
+            if (!['no', 'nama', 'name', 'email', 'password', 'number', 'num', 'hp', 'telepon', 'wa', 'whatsapp', 'phone'].includes(key.toLowerCase())) {
+              if (val && typeof val === 'string' && val.trim() !== '' && val.trim() !== '-') {
+                mapel.push(key.replace(/_/g, ' '))
+              }
+            }
+          }
+        }
+
+        return { nama, email, password, phone, mapel, format: detectedFormat }
+      })
+
+      setPreview(previewRows)
+    } catch (err) {
+      setMessage({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Gagal memuat preview',
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
-    <div className="rounded-lg bg-white p-6 shadow-md dark:bg-zinc-900">
-      <h2 className="mb-4 text-xl font-bold text-zinc-900 dark:text-zinc-50">
-        Import Guru dari Excel
-      </h2>
-      <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-400">
-        Upload file Excel dengan format:
-      </p>
-      <ul className="mb-4 list-inside list-disc text-sm text-zinc-600 dark:text-zinc-400">
-        <li>Format A: Kolom = Mapel, Baris = Guru, Cell = Kelas</li>
-        <li>Format B: Kolom = Kelas (7A, 8B...), Baris = Guru, Cell = Mapel</li>
-        <li>Kolom wajib: nama, email, password</li>
-      </ul>
-
-      {message && (
-        <div
-          className={`mb-4 rounded-md p-3 text-sm ${
-            message.type === 'success'
-              ? 'bg-green-50 text-green-800 dark:bg-green-900/30 dark:text-green-200'
-              : 'bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-200'
-          }`}
-        >
-          {message.text}
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <div>
-          <label htmlFor="file" className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            File Excel
-          </label>
-          <input
+    <form onSubmit={handlePreview} className="flex flex-col gap-5">
+      <Card>
+        <CardHeader>
+          <div className="min-w-0">
+            <CardTitle>Upload Berkas</CardTitle>
+            <CardDescription>
+              Format A: Kolom = Mapel, Baris = Guru, Cell = Kelas · Format B: Kolom = Kelas (7A,
+              8B...), Baris = Guru, Cell = Mapel · Kolom wajib: nama, email, password
+            </CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <Dropzone
             id="file"
             name="file"
-            type="file"
             accept=".xlsx,.xls"
             required
-            className="w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+            disabled={loading}
+            file={file}
+            inputRef={fileInputRef}
+            onFileChange={handleFileChange}
+            hint="Format dikenali otomatis dari nama kolom. Hanya sheet pertama yang dibaca."
           />
-        </div>
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full rounded-md bg-black px-4 py-2 font-medium text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-white dark:text-black dark:hover:bg-zinc-200"
-        >
-          {loading ? 'Mengimpor...' : 'Import Guru'}
-        </button>
-      </form>
-    </div>
+          {format ? (
+            <FeedbackBanner tone="info">
+              Format terdeteksi:{' '}
+              <strong>
+                {format === 'A' ? 'Format A (Mapel sebagai kolom)' : 'Format B (Kelas sebagai kolom)'}
+              </strong>
+            </FeedbackBanner>
+          ) : null}
+
+          {fileName ? (
+            <p className="meta">
+              Terakhir diimpor: {fileName}
+            </p>
+          ) : null}
+
+          {message ? (
+            <FeedbackBanner tone={message.type} onDismiss={() => setMessage(null)}>
+              {message.text}
+            </FeedbackBanner>
+          ) : null}
+        </CardContent>
+      </Card>
+
+      {preview && preview.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <div className="min-w-0">
+              <CardTitle>Preview (10 baris pertama)</CardTitle>
+              <CardDescription>
+                Pastikan nama, email, dan password sudah terisi sebelum melanjutkan.
+              </CardDescription>
+            </div>
+            <span
+              aria-hidden
+              className="flex size-10 shrink-0 items-center justify-center rounded-md bg-accent-subtle text-accent-subtle-text"
+            >
+              <FileSpreadsheet className="size-5" />
+            </span>
+          </CardHeader>
+          <CardContent>
+            <TableScroll label="Preview data guru">
+              <Table className="min-w-[720px]">
+                <TableCaption>Preview 10 baris pertama dari berkas guru</TableCaption>
+                <TableHeader>
+                  <TableRow className="hover:bg-surface-sunken">
+                    <TableHead>Nama</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Password</TableHead>
+                    <TableHead>Phone</TableHead>
+                    <TableHead>Mapel</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {preview.map((row, i) => (
+                    <TableRow key={i}>
+                      <TableCell className="font-semibold text-text-primary">{row.nama}</TableCell>
+                      <TableCell>{row.email}</TableCell>
+                      <TableCell className="meta">{row.password}</TableCell>
+                      <TableCell>{row.phone || '-'}</TableCell>
+                      <TableCell>
+                        {row.mapel.length > 0 ? (
+                          <span className="flex flex-wrap gap-1">
+                            {row.mapel.map((subject) => (
+                              <Badge key={subject} variant="neutral">
+                                {subject}
+                              </Badge>
+                            ))}
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1 text-text-disabled">
+                            <Info aria-hidden className="size-3.5" />
+                            -
+                          </span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableScroll>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      <div className="flex justify-end">
+        <Button type="submit" size="lg" loading={loading} disabled={!file} loadingText="Mengimpor...">
+          Import Guru
+        </Button>
+      </div>
+    </form>
   )
 }

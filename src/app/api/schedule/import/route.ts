@@ -27,17 +27,17 @@ export async function POST(request: NextRequest) {
     const supabase = createClient(cookieStore)
 
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
+      data: { user },
+    } = await supabase.auth.getUser()
 
-    if (!session) {
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const { data: profile } = await supabase
       .from('profiles')
       .select('is_admin')
-      .eq('id', session.user.id)
+      .eq('id', user.id)
       .single()
 
     if (!profile?.is_admin) {
@@ -74,6 +74,10 @@ export async function POST(request: NextRequest) {
     )
 
     // ── 3. Delete existing schedules ───
+    // Load-bearing reset: the table has no unique constraint on
+    // (class_name, day, period), so step 7 below cannot be an upsert. This
+    // full-table delete is the ONLY thing making the import idempotent — do not
+    // remove it or re-imports will fail on duplicate rows.
     const { error: deleteError } = await supabase.from('schedules').delete().neq('id', 0)
     if (deleteError) {
       console.error('Delete schedules error:', deleteError)
@@ -125,23 +129,8 @@ export async function POST(request: NextRequest) {
       allRecords.push(...records)
     }
 
-    // ── 7. Batch upsert schedule records ───
-    let imported = 0
-    if (allRecords.length > 0) {
-      const { error: upsertError } = await supabase.from('schedules').upsert(allRecords, {
-        onConflict: 'class_name,day,period',
-      })
-
-      if (upsertError) {
-        return NextResponse.json(
-          { error: 'Gagal menyimpan jadwal: ' + upsertError.message },
-          { status: 500 }
-        )
-      }
-      imported = allRecords.length
-    }
-
-    if (imported === 0) {
+    // ── 7. Batch insert schedule records ───
+    if (allRecords.length === 0) {
       return NextResponse.json(
         {
           error:
@@ -150,6 +139,17 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
+
+    const { error: insertError } = await supabase.from('schedules').insert(allRecords)
+
+    if (insertError) {
+      return NextResponse.json(
+        { error: 'Gagal menyimpan jadwal: ' + insertError.message },
+        { status: 500 }
+      )
+    }
+
+    const imported = allRecords.length
 
     return NextResponse.json({
       success: true,

@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS public.absensis (
   foto TEXT,
   akurasi TEXT,
   waktu TIMESTAMPTZ NOT NULL,
+  value CHAR(1) CHECK (value IN ('S', 'I', 'A')),
   created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
   updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );

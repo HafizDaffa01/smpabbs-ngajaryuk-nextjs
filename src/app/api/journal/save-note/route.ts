@@ -8,10 +8,10 @@ export async function POST(request: NextRequest) {
     const supabase = createClient(cookieStore)
 
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
+      data: { user },
+    } = await supabase.auth.getUser()
 
-    if (!session) {
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
         time,
         note,
         checked: checked ?? true,
-        teacher_id: teacher_id ?? session.user.id,
+        teacher_id: teacher_id ?? user.id,
       },
       { onConflict: 'class,subject,date' }
     )

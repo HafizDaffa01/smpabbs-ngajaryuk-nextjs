@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/utils/supabase/middleware'
+import { createServerClient, parseCookieHeader } from '@supabase/ssr'
+import { cookies } from 'next/headers'
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,7 +15,25 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { supabase, supabaseResponse } = createClient(request)
+    const cookieStore = await cookies()
+
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return parseCookieHeader(request.cookies.toString())
+          },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              cookieStore.set(name, value, options)
+            })
+          },
+        },
+      }
+    )
+
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -27,7 +46,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    return NextResponse.redirect(new URL('/', request.url))
+    return NextResponse.json({ success: true })
   } catch {
     return NextResponse.json(
       { error: 'Terjadi kesalahan server' },

@@ -1,5 +1,4 @@
-import { createClient } from '@/utils/supabase/server'
-import { cookies } from 'next/headers'
+import { createServiceClient } from '@/utils/supabase/server'
 import { type NextRequest, NextResponse } from 'next/server'
 
 export async function GET(
@@ -8,21 +7,20 @@ export async function GET(
 ) {
   try {
     const { id } = await params
-    const cookieStore = await cookies()
-    const supabase = createClient(cookieStore)
+    const supabase = createServiceClient()
 
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
+      data: { user },
+    } = await supabase.auth.getUser()
 
-    if (!session) {
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const { data: profile } = await supabase
       .from('profiles')
       .select('is_admin')
-      .eq('id', session.user.id)
+      .eq('id', user.id)
       .single()
 
     if (!profile?.is_admin) {
@@ -54,21 +52,20 @@ export async function PUT(
 ) {
   try {
     const { id } = await params
-    const cookieStore = await cookies()
-    const supabase = createClient(cookieStore)
+    const supabase = createServiceClient()
 
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
+      data: { user },
+    } = await supabase.auth.getUser()
 
-    if (!session) {
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const { data: profile } = await supabase
       .from('profiles')
       .select('is_admin')
-      .eq('id', session.user.id)
+      .eq('id', user.id)
       .single()
 
     if (!profile?.is_admin) {
@@ -113,21 +110,20 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params
-    const cookieStore = await cookies()
-    const supabase = createClient(cookieStore)
+    const supabase = createServiceClient()
 
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
+      data: { user },
+    } = await supabase.auth.getUser()
 
-    if (!session) {
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const { data: profile } = await supabase
       .from('profiles')
       .select('is_admin')
-      .eq('id', session.user.id)
+      .eq('id', user.id)
       .single()
 
     if (!profile?.is_admin) {

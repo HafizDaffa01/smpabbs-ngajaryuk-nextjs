@@ -8,17 +8,17 @@ export async function GET(request: NextRequest) {
     const supabase = createClient(cookieStore)
 
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
+      data: { user },
+    } = await supabase.auth.getUser()
 
-    if (!session) {
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const { data: profile } = await supabase
       .from('profiles')
       .select('is_admin')
-      .eq('id', session.user.id)
+      .eq('id', user.id)
       .single()
 
     if (!profile?.is_admin) {
@@ -61,12 +61,14 @@ export async function GET(request: NextRequest) {
       .eq('month', parseInt(month))
       .eq('year', parseInt(year))
 
-    // Fetch notes
+    // Fetch notes for the month
+    const monthStr = String(parseInt(month)).padStart(2, '0')
     const { data: notes } = await supabase
       .from('notes')
       .select('*')
       .eq('class', grade)
-      .eq('date', `${year}-${month.padStart(2, '0')}-01`)
+      .gte('date', `${year}-${monthStr}-01`)
+      .lte('date', `${year}-${monthStr}-31`)
 
     // Build workbook
     const wb = xlsx.utils.book_new()

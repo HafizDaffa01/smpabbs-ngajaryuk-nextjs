@@ -1,6 +1,7 @@
 import { createClient } from '@/utils/supabase/server'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
+import { PageHeader } from '@/components/ui/page-header'
 import TeacherImportForm from './teacher-import-form'
 
 export const metadata = {
@@ -13,17 +14,17 @@ export default async function AdminImportTeachersPage() {
   const supabase = createClient(cookieStore)
 
   const {
-    data: { session },
-  } = await supabase.auth.getSession()
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  if (!session) {
+  if (!user) {
     redirect('/login')
   }
 
   const { data: profile } = await supabase
     .from('profiles')
     .select('is_admin')
-    .eq('id', session.user.id)
+    .eq('id', user.id)
     .single()
 
   if (!profile?.is_admin) {
@@ -31,18 +32,18 @@ export default async function AdminImportTeachersPage() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-black">
-      <main className="mx-auto max-w-2xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mb-6">
-          <a
-            href="/admin"
-            className="text-sm font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
-          >
-            ← Kembali ke Dashboard
-          </a>
-        </div>
-        <TeacherImportForm />
-      </main>
+    <div className="flex flex-col gap-5">
+      <PageHeader
+        title="Import Guru"
+        crumbs={[
+          { label: 'Beranda', href: '/' },
+          { label: 'Admin', href: '/admin' },
+          { label: 'Import Guru' },
+        ]}
+        description="Unggah data guru beserta mapel dari berkas Excel. Format A dan B dikenali otomatis."
+      />
+
+      <TeacherImportForm />
     </div>
   )
 }

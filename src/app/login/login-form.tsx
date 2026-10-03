@@ -2,8 +2,49 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { LogIn, Lock, Mail } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { FeedbackBanner } from '@/components/ui/feedback-banner'
+import { Field, Input } from '@/components/ui/input'
 
-export default function LoginForm({ message }: { message: string | null }) {
+/**
+ * This screen renders outside any app shell, so the `focus-ring` utility class
+ * used by the primitives has no `[data-ds-shell]` ancestor to hang off. These
+ * Tailwind-native equivalents keep keyboard focus visible here.
+ */
+const FOCUS = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
+
+/** Mirrors the sanitising done in `page.tsx` — never push an off-site URL. */
+function safeRedirect(target: string | undefined): string {
+  if (!target) return '/'
+  if (!target.startsWith('/') || target.startsWith('//')) return '/'
+  return target
+}
+
+function IconInput({
+  icon: Icon,
+  className,
+  ...props
+}: React.ComponentProps<typeof Input> & { icon: LucideIcon }) {
+  return (
+    <div className="relative">
+      <Icon
+        aria-hidden
+        className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-text-tertiary"
+      />
+      <Input className={`pl-9 ${FOCUS} ${className ?? ''}`} {...props} />
+    </div>
+  )
+}
+
+export default function LoginForm({
+  message,
+  redirectTo,
+}: {
+  message: string | null
+  redirectTo?: string
+}) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
@@ -19,13 +60,8 @@ export default function LoginForm({ message }: { message: string | null }) {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         body: formData,
+        credentials: 'include',
       })
-
-      if (response.redirected) {
-        router.push(response.url)
-        router.refresh()
-        return
-      }
 
       const data = await response.json()
 
@@ -33,8 +69,7 @@ export default function LoginForm({ message }: { message: string | null }) {
         throw new Error(data.error || 'Login gagal')
       }
 
-      router.push('/')
-      router.refresh()
+      router.push(safeRedirect(redirectTo))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Terjadi kesalahan')
     } finally {
@@ -44,49 +79,54 @@ export default function LoginForm({ message }: { message: string | null }) {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      {message && (
-        <div className="rounded-md bg-green-50 p-3 text-sm text-green-800 dark:bg-green-900/30 dark:text-green-200">
-          {message}
-        </div>
-      )}
-      {error && (
-        <div className="rounded-md bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">
+      {message ? <FeedbackBanner tone="success">{message}</FeedbackBanner> : null}
+      {error ? (
+        <FeedbackBanner tone="error" onDismiss={() => setError(null)}>
           {error}
-        </div>
-      )}
-      <div>
-        <label htmlFor="email" className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-          Email
-        </label>
-        <input
-          id="email"
-          name="email"
-          type="email"
-          required
-          className="w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900 focus:border-black focus:outline-none focus:ring-1 focus:ring-black dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:focus:border-white dark:focus:ring-white"
-          placeholder="nama@contoh.com"
-        />
-      </div>
-      <div>
-        <label htmlFor="password" className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-          Password
-        </label>
-        <input
-          id="password"
-          name="password"
-          type="password"
-          required
-          className="w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900 focus:border-black focus:outline-none focus:ring-1 focus:ring-black dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:focus:border-white dark:focus:ring-white"
-          placeholder="••••••••"
-        />
-      </div>
-      <button
+        </FeedbackBanner>
+      ) : null}
+
+      <Field id="email" label="Email" required>
+        {(field) => (
+          <IconInput
+            {...field}
+            icon={Mail}
+            name="email"
+            type="email"
+            required
+            placeholder="nama@contoh.com"
+            autoComplete="email"
+            autoCapitalize="none"
+            spellCheck={false}
+            autoFocus
+          />
+        )}
+      </Field>
+
+      <Field id="password" label="Password" required>
+        {(field) => (
+          <IconInput
+            {...field}
+            icon={Lock}
+            name="password"
+            type="password"
+            required
+            placeholder="••••••••"
+            autoComplete="current-password"
+          />
+        )}
+      </Field>
+
+      <Button
         type="submit"
-        disabled={loading}
-        className="w-full rounded-md bg-black px-4 py-2 font-medium text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-white dark:text-black dark:hover:bg-zinc-200"
+        size="lg"
+        loading={loading}
+        loadingText="Memproses..."
+        className={`w-full ${FOCUS}`}
       >
-        {loading ? 'Memproses...' : 'Login'}
-      </button>
+        <LogIn aria-hidden className="size-4" />
+        Login
+      </Button>
     </form>
   )
 }

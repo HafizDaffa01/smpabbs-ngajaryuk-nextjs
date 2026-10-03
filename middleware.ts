@@ -1,10 +1,10 @@
-import { createServerClient } from "@supabase/ssr";
+import { createServerClient, parseCookieHeader } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 
 export const runtime = "edge";
 
 export async function middleware(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({
+  let response = NextResponse.next({
     request: { headers: request.headers },
   });
 
@@ -14,36 +14,32 @@ export async function middleware(request: NextRequest) {
     {
       cookies: {
         getAll() {
-          return request.cookies.getAll();
+          return parseCookieHeader(request.cookies.toString());
         },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            request.cookies.set(name, value)
-          );
-          supabaseResponse = NextResponse.next({
-            request,
+        setAll(cookiesToSet, headers) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            response.cookies.set(name, value, options);
           });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          );
+          Object.entries(headers).forEach(([key, value]) => {
+            response.headers.set(key, value);
+          });
         },
       },
     }
   );
 
-  await supabase.auth.getSession();
+  await supabase.auth.getClaims();
 
   const path = request.nextUrl.pathname;
 
   // Protected routes - require authentication
+  // Matches Laravel route middleware: auth + admin where applicable
   const protectedRoutes = [
     '/admin',
     '/absensi',
     '/journal',
     '/prevSmes',
     '/profile',
-    '/schedule',
-    '/import-students',
     '/backup',
     '/explorer',
     '/export',
@@ -55,21 +51,23 @@ export async function middleware(request: NextRequest) {
 
   if (isProtectedRoute) {
     const {
-      data: { session },
-    } = await supabase.auth.getSession();
+      data: { user },
+    } = await supabase.auth.getUser();
 
-    if (!session) {
+    if (!user) {
       const url = new URL("/login", request.url);
       url.searchParams.set("redirect", path);
       return NextResponse.redirect(url);
     }
 
-    // Admin-only routes
+    // Admin-only routes - matches Laravel AdminMiddleware
     const adminRoutes = [
       '/admin',
       '/backup',
       '/explorer',
       '/export',
+      '/admin/import',
+      '/admin/import-teachers',
     ];
 
     const isAdminRoute = adminRoutes.some(
@@ -77,13 +75,13 @@ export async function middleware(request: NextRequest) {
     );
 
     if (isAdminRoute) {
-      const { data: user } = await supabase
+      const { data: userProfile } = await supabase
         .from("profiles")
         .select("is_admin")
-        .eq("id", session.user.id)
+        .eq("id", user.id)
         .single();
 
-      if (!user?.is_admin) {
+      if (!userProfile?.is_admin) {
         return NextResponse.redirect(new URL("/unauthorized", request.url));
       }
     }
@@ -97,15 +95,15 @@ export async function middleware(request: NextRequest) {
 
   if (isPublicRoute) {
     const {
-      data: { session },
-    } = await supabase.auth.getSession();
+      data: { user },
+    } = await supabase.auth.getUser();
 
-    if (session) {
+    if (user) {
       return NextResponse.redirect(new URL("/", request.url));
     }
   }
 
-  return supabaseResponse;
+  return response;
 }
 
 export const config = {

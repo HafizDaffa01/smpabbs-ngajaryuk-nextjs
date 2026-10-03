@@ -1,26 +1,499 @@
 @import "tailwindcss";
 
+/* Tailwind v4 defaults `dark:` to the OS preference. NgajarYuk drives dark mode
+   from an explicit `.dark` class on <html> (see the inline script in
+   src/app/layout.tsx) so the default is always light, per product decision. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ==========================================
+   DESIGN SYSTEM TOKENS  ·  v2  ·  "SaaS Admin"
+   ---------------------------------------------------------------
+   ADDITIVE LAYER. Everything below is namespaced with `--ds-` so it can
+   never collide with the legacy `--accent` / `--bg-*` / `--dark-*` tokens
+   used by the teacher pages. Components consume these through the
+   `@theme inline` block further down (bg-surface-card, text-accent-text, …).
+
+   Density 8/10 · Motion 3/10 · Light default, dark opt-in.
+   ========================================== */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
+
+  /* --- Surfaces ------------------------------------------------ */
+  --ds-surface-canvas: #f6f7f9;
+  --ds-surface-card: #ffffff;
+  --ds-surface-raised: #ffffff;
+  --ds-surface-sunken: #f1f3f5;
+  --ds-surface-hover: #f3f4f6;
+
+  /* --- Borders ------------------------------------------------- */
+  --ds-border-subtle: #e5e7eb;
+  --ds-border-default: #d5d9e0;
+  --ds-border-strong: #b3bac6;
+
+  /* --- Text ---------------------------------------------------- */
+  --ds-text-primary: #101828;
+  --ds-text-secondary: #4a5568;
+  --ds-text-tertiary: #6b7684;
+  --ds-text-disabled: #9aa3af;
+  --ds-text-inverse: #ffffff;
+
+  /* --- Brand: emerald ramp ------------------------------------ */
+  --ds-accent-50: #ecfdf5;
+  --ds-accent-100: #d1fae5;
+  --ds-accent-200: #a7f3d0;
+  --ds-accent-300: #6ee7b7;
+  --ds-accent-400: #34d399;
+  --ds-accent-500: #10b981;
+  --ds-accent-600: #059669;
+  --ds-accent-700: #047857;
+  --ds-accent-800: #065f46;
+  --ds-accent-900: #064e3b;
+
+  /* --- Brand: semantic accent roles --------------------------- */
+  --ds-accent: #047857;          /* primary action background      */
+  --ds-accent-hover: #065f46;
+  --ds-accent-active: #064e3b;
+  --ds-accent-text: #047857;     /* links / emphasis on light bg    */
+  --ds-accent-subtle: #ecfdf5;   /* tinted background               */
+  --ds-accent-subtle-text: #065f46;
+  --ds-accent-border: #a7f3d0;
+  --ds-on-accent: #ffffff;
+
+  /* --- Semantic status ---------------------------------------- */
+  --ds-success-bg: #ecfdf5;
+  --ds-success-text: #047857;
+  --ds-success-border: #a7f3d0;
+
+  --ds-info-bg: #eff6ff;
+  --ds-info-text: #1d4ed8;
+  --ds-info-border: #bfdbfe;
+
+  --ds-warning-bg: #fffbeb;
+  --ds-warning-text: #92400e;
+  --ds-warning-border: #fde68a;
+
+  --ds-danger-bg: #fef3f2;
+  --ds-danger-text: #b42318;
+  --ds-danger-border: #fecdca;
+
+  --ds-neutral-bg: #f2f4f7;
+  --ds-neutral-text: #344054;
+  --ds-neutral-border: #e4e7ec;
+
+  /* --- Radius -------------------------------------------------- */
+  --ds-radius-sm: 6px;   /* inputs, buttons */
+  --ds-radius-md: 8px;   /* cards           */
+  --ds-radius-lg: 10px;  /* modals          */
+  --ds-radius-full: 999px;
+
+  /* --- Elevation ----------------------------------------------- */
+  --ds-shadow-xs: 0 1px 2px rgba(16, 24, 40, 0.05);
+  --ds-shadow-sm: 0 1px 3px rgba(16, 24, 40, 0.08), 0 1px 2px rgba(16, 24, 40, 0.04);
+  --ds-shadow-md: 0 4px 8px -2px rgba(16, 24, 40, 0.08), 0 2px 4px -2px rgba(16, 24, 40, 0.04);
+  --ds-shadow-lg: 0 12px 20px -6px rgba(16, 24, 40, 0.1), 0 4px 8px -4px rgba(16, 24, 40, 0.04);
+  --ds-shadow-focus: 0 0 0 3px rgba(4, 120, 87, 0.25);
+
+  /* --- Motion -------------------------------------------------- */
+  --ds-duration-fast: 150ms;   /* colour / border hover */
+  --ds-duration-base: 200ms;   /* panels, dropdowns     */
+  --ds-duration-slow: 250ms;   /* mobile drawer         */
+  --ds-ease: cubic-bezier(0.16, 1, 0.3, 1);
 }
+
+.dark {
+  color-scheme: dark;
+
+  --ds-surface-canvas: #0b0f14;
+  --ds-surface-card: #121820;
+  --ds-surface-raised: #171f28;
+  --ds-surface-sunken: #0e141b;
+  --ds-surface-hover: #1c2530;
+
+  --ds-border-subtle: #1e2833;
+  --ds-border-default: #2a3746;
+  --ds-border-strong: #3d4d5f;
+
+  --ds-text-primary: #e6edf3;
+  --ds-text-secondary: #9aa7b4;
+  --ds-text-tertiary: #7b8794;
+  --ds-text-disabled: #5b6875;
+  --ds-text-inverse: #ffffff;
+
+  --ds-accent: #10b981;
+  --ds-accent-hover: #34d399;
+  --ds-accent-active: #6ee7b7;
+  --ds-accent-text: #34d399;
+  --ds-accent-subtle: rgba(16, 185, 129, 0.12);
+  --ds-accent-subtle-text: #6ee7b7;
+  --ds-accent-border: rgba(16, 185, 129, 0.35);
+  --ds-on-accent: #05231a;
+
+  --ds-success-bg: rgba(16, 185, 129, 0.14);
+  --ds-success-text: #6ee7b7;
+  --ds-success-border: rgba(16, 185, 129, 0.35);
+
+  --ds-info-bg: rgba(59, 130, 246, 0.14);
+  --ds-info-text: #93c5fd;
+  --ds-info-border: rgba(59, 130, 246, 0.35);
+
+  --ds-warning-bg: rgba(245, 158, 11, 0.14);
+  --ds-warning-text: #fcd34d;
+  --ds-warning-border: rgba(245, 158, 11, 0.35);
+
+  --ds-danger-bg: rgba(239, 68, 68, 0.14);
+  --ds-danger-text: #fda29b;
+  --ds-danger-border: rgba(239, 68, 68, 0.35);
+
+  --ds-neutral-bg: rgba(148, 163, 184, 0.14);
+  --ds-neutral-text: #c3ccd6;
+  --ds-neutral-border: rgba(148, 163, 184, 0.3);
+
+  /* Dark leans on 1px borders and deeper, less diffuse shadows. */
+  --ds-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --ds-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --ds-shadow-md: 0 4px 10px -2px rgba(0, 0, 0, 0.55);
+  --ds-shadow-lg: 0 14px 26px -8px rgba(0, 0, 0, 0.65);
+  --ds-shadow-focus: 0 0 0 3px rgba(16, 185, 129, 0.35);
+}
+
+/* --- Page canvas ------------------------------------------------
+   The document background is the one surface that is never inside
+   `[data-ds-shell]`: the login screen and the SweetAlert2 popup both render on
+   <body>. Driven by the same tokens (and therefore the same `.dark` toggle) as
+   everything else, so there is no flash of the wrong theme on navigation. */
+body {
+  background-color: var(--ds-surface-canvas);
+  color: var(--ds-text-primary);
+  color-scheme: light;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.dark body {
+  color-scheme: dark;
+}
+
+/* ==========================================
+   TAILWIND THEME BRIDGE
+   Maps the --ds-* tokens onto v4 utility namespaces.
+   ========================================== */
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-nunito-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* --- compat aliases -------------------------------------------
+     `src/app/layout.tsx` still classes <body> with `bg-dark-900 text-dark-100`
+     from when the app was dark-only. They are the only surviving consumer of
+     the old `--dark-*` ramp, so instead of keeping that ramp alive we point the
+     two utilities straight at DS tokens. Delete these two lines together with
+     the body className once nothing references the old names. */
+  --color-dark-900: var(--ds-surface-canvas);
+  --color-dark-100: var(--ds-text-primary);
+
+  /* --- surfaces → bg-surface-* -------------------------------- */
+  --color-surface-canvas: var(--ds-surface-canvas);
+  --color-surface-card: var(--ds-surface-card);
+  --color-surface-raised: var(--ds-surface-raised);
+  --color-surface-sunken: var(--ds-surface-sunken);
+  --color-surface-hover: var(--ds-surface-hover);
+
+  /* --- borders → border-border-* ------------------------------ */
+  --color-border-subtle: var(--ds-border-subtle);
+  --color-border-default: var(--ds-border-default);
+  --color-border-strong: var(--ds-border-strong);
+
+  /* --- text → text-text-* ------------------------------------- */
+  --color-text-primary: var(--ds-text-primary);
+  --color-text-secondary: var(--ds-text-secondary);
+  --color-text-tertiary: var(--ds-text-tertiary);
+  --color-text-disabled: var(--ds-text-disabled);
+  --color-text-inverse: var(--ds-text-inverse);
+
+  /* --- brand → bg-accent / text-accent-text / … -------------- */
+  --color-accent-50: var(--ds-accent-50);
+  --color-accent-100: var(--ds-accent-100);
+  --color-accent-200: var(--ds-accent-200);
+  --color-accent-300: var(--ds-accent-300);
+  --color-accent-400: var(--ds-accent-400);
+  --color-accent-500: var(--ds-accent-500);
+  --color-accent-600: var(--ds-accent-600);
+  --color-accent-700: var(--ds-accent-700);
+  --color-accent-800: var(--ds-accent-800);
+  --color-accent-900: var(--ds-accent-900);
+  --color-accent: var(--ds-accent);
+  --color-accent-hover: var(--ds-accent-hover);
+  --color-accent-active: var(--ds-accent-active);
+  --color-accent-text: var(--ds-accent-text);
+  --color-accent-subtle: var(--ds-accent-subtle);
+  --color-accent-subtle-text: var(--ds-accent-subtle-text);
+  --color-accent-border: var(--ds-accent-border);
+  --color-on-accent: var(--ds-on-accent);
+
+  /* --- semantic status → bg-*-bg / text-*-text / border-* ---- */
+  --color-success-bg: var(--ds-success-bg);
+  --color-success-text: var(--ds-success-text);
+  --color-success-border: var(--ds-success-border);
+  --color-info-bg: var(--ds-info-bg);
+  --color-info-text: var(--ds-info-text);
+  --color-info-border: var(--ds-info-border);
+  --color-warning-bg: var(--ds-warning-bg);
+  --color-warning-text: var(--ds-warning-text);
+  --color-warning-border: var(--ds-warning-border);
+  --color-danger-bg: var(--ds-danger-bg);
+  --color-danger-text: var(--ds-danger-text);
+  --color-danger-border: var(--ds-danger-border);
+  --color-neutral-bg: var(--ds-neutral-bg);
+  --color-neutral-text: var(--ds-neutral-text);
+  --color-neutral-border: var(--ds-neutral-border);
+
+  /* --- radius → rounded-* ------------------------------------- */
+  --radius-sm: var(--ds-radius-sm);
+  --radius-md: var(--ds-radius-md);
+  --radius-lg: var(--ds-radius-lg);
+  --radius-full: var(--ds-radius-full);
+
+  /* --- elevation → shadow-* ---------------------------------- */
+  --shadow-xs: var(--ds-shadow-xs);
+  --shadow-sm: var(--ds-shadow-sm);
+  --shadow-md: var(--ds-shadow-md);
+  --shadow-lg: var(--ds-shadow-lg);
+  --shadow-focus: var(--ds-shadow-focus);
+
+  /* --- motion → duration-* / ease-* -------------------------- */
+  --ease-ds: var(--ds-ease);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* ==========================================
+   DESIGN SYSTEM · SHELL BASE
+   Scoped to `[data-ds-shell]`, the hook both shell roots carry.
+   ========================================== */
+
+[data-ds-shell] {
+  color-scheme: light;
+  background-color: var(--ds-surface-canvas);
+  color: var(--ds-text-primary);
+  font-family: var(--font-nunito-sans), system-ui, sans-serif;
+  font-size: 0.875rem; /* 14px — dense admin tables & forms */
+  line-height: 1.5;
+  min-height: 100dvh;
+  /* Native scrollbars follow the shell theme (legacy pages style their own). */
+  scrollbar-color: var(--ds-border-strong) transparent;
+}
+
+.dark [data-ds-shell] {
+  color-scheme: dark;
+}
+
+/* Prose blocks (journal copy, long descriptions) read better at 16px. */
+[data-ds-shell] .prose-block {
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+/* Headings tighten up as they grow. */
+[data-ds-shell] h1,
+[data-ds-shell] h2,
+[data-ds-shell] h3 {
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  color: var(--ds-text-primary);
+}
+
+[data-ds-shell] .text-display {
+  line-height: 1.2;
+}
+
+/* Small uppercase eyebrow labels — the only place tracking goes up. */
+[data-ds-shell] .eyebrow {
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.33;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--ds-text-tertiary);
+}
+
+/* Numeric / metadata text: IDs, timestamps, period codes. */
+[data-ds-shell] .meta {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+  color: var(--ds-text-tertiary);
+}
+
+/* Page-header action row: primary actions get a 44px touch target on phones
+   without fighting the Button's own height utility (min-height, not height). */
+@media (max-width: 639px) {
+  [data-ds-shell] .action-row > * {
+    min-height: 44px;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Single, token-driven focus ring for every interactive element in the shell. */
+[data-ds-shell] .focus-ring:focus-visible {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  box-shadow: var(--ds-shadow-focus);
 }
+
+/* Reduced motion: every transition inside the shell collapses to ~0. */
+@media (prefers-reduced-motion: reduce) {
+  [data-ds-shell] *,
+  [data-ds-shell] *::before,
+  [data-ds-shell] *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ==========================================
+   DESIGN SYSTEM · SWEETALERT2
+   ---------------------------------------------------------------
+   SweetAlert2 mounts its popup on <body>, i.e. OUTSIDE the `[data-ds-shell]`
+   subtree, so it cannot inherit the shell's cascade. It is themed from the same
+   `--ds-*` tokens instead, which also makes it follow the light/dark toggle.
+   The popup frame is handled imperatively in `components/ui/swal-theme.ts`;
+   these rules cover the frame classes it registers plus the `.ny-pop*` body
+   markup used by the admin popups.
+   ========================================== */
+
+.swal2-popup.ny-popup {
+  border: 1px solid var(--ds-border-default);
+  border-radius: var(--ds-radius-lg);
+  background: var(--ds-surface-raised);
+  box-shadow: var(--ds-shadow-lg);
+  color: var(--ds-text-secondary);
+}
+
+.swal2-popup.ny-popup .swal2-title {
+  color: var(--ds-text-primary);
+}
+
+.swal2-popup.ny-popup .swal2-html-container {
+  color: var(--ds-text-secondary);
+}
+
+.swal2-popup.ny-popup .swal2-footer {
+  margin: 1rem 1.25rem;
+}
+
+.ny-swal-button {
+  min-height: 44px;
+  border-radius: var(--ds-radius-sm) !important;
+  font-weight: 600 !important;
+  box-shadow: none !important;
+}
+
+.ny-swal-button:focus-visible,
+.ny-swal-close:focus-visible {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  box-shadow: var(--ds-shadow-focus) !important;
+}
+
+/* --- Popup body markup -------------------------------------------- */
+.ny-pop-title {
+  margin: 0 0 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--ds-text-primary);
+}
+
+.ny-pop-muted {
+  margin: 0 0 0.25rem;
+  font-size: 0.8125rem;
+  color: var(--ds-text-tertiary);
+}
+
+.ny-pop-value {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--ds-text-primary);
+}
+
+.ny-pop-box {
+  margin: 0 0 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-surface-sunken);
+}
+
+.ny-pop-scroll {
+  max-height: 50vh;
+  overflow-y: auto;
+  text-align: left;
+}
+
+.ny-pop-list {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.ny-pop-list li {
+  padding: 0.125rem 0;
+  font-size: 0.8125rem;
+  color: var(--ds-text-secondary);
+}
+
+.ny-pop-item {
+  margin-bottom: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--ds-border-subtle);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-surface-sunken);
+}
+
+.ny-pop-item > strong {
+  color: var(--ds-text-primary);
+}
+
+.ny-pop-link {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+  padding: 0.5rem 1rem;
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-accent);
+  color: var(--ds-on-accent);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.ny-pop-link:hover,
+.ny-pop-link:focus-visible {
+  background: var(--ds-accent-hover);
+  color: var(--ds-on-accent);
+}
+
+.ny-pop-link svg {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+}
+
+
+/* ==========================================
+   REMOVED IN THE DS v2 MIGRATION
+   ---------------------------------------------------------------
+   The Bootstrap-parity layer (hand-written .card / .btn / .form-control /
+   .table / .navbar / .modal-* emulations plus the --primary / --bg-* /
+   --dark-* token ramp) and the brutalist layer (.card-brutalist,
+   .btn-brutalist, .brutalist-*, .table-brutalist, .section-label and the
+   --shadow-brutal / --border-brutal / --radius-brutal tokens) were deleted
+   once every page was migrated to the --ds-* tokens. Anything that still
+   needs a card, button, table or input uses the primitives in
+   `src/components/ui/`, which are styled with Tailwind utilities fed by the
+   @theme inline bridge above.
+   ========================================== */

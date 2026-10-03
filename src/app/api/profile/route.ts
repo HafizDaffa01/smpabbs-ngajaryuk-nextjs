@@ -8,22 +8,53 @@ export async function PUT(request: NextRequest) {
     const supabase = createClient(cookieStore)
 
     const {
-      data: { session },
-    } = await supabase.auth.getSession()
+      data: { user },
+    } = await supabase.auth.getUser()
 
-    if (!session) {
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { phone_num } = await request.json()
+    const body = await request.json()
+    const { name, email, phone_num } = body
 
-    const { error } = await supabase
+    // Validate input
+    if (!name || typeof name !== 'string' || name.trim().length < 1) {
+      return NextResponse.json(
+        { error: 'Nama harus diisi' },
+        { status: 400 }
+      )
+    }
+
+    if (!email || typeof email !== 'string' || !email.includes('@')) {
+      return NextResponse.json(
+        { error: 'Email tidak valid' },
+        { status: 400 }
+      )
+    }
+
+    // Update profile in database
+    const { error: profileError } = await supabase
       .from('profiles')
-      .update({ phone_num: phone_num || null })
-      .eq('id', session.user.id)
+      .update({
+        name: name.trim(),
+        phone_num: phone_num || null,
+      })
+      .eq('id', user.id)
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+    if (profileError) {
+      return NextResponse.json({ error: profileError.message }, { status: 500 })
+    }
+
+    // Update email in Supabase Auth if changed
+    if (email !== user.email) {
+      const { error: authError } = await supabase.auth.updateUser({
+        email: email.trim(),
+      })
+
+      if (authError) {
+        return NextResponse.json({ error: authError.message }, { status: 500 })
+      }
     }
 
     return NextResponse.json({ success: true })

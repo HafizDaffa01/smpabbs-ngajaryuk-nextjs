@@ -1,6 +1,44 @@
 'use client'
 
 import { useState } from 'react'
+import {
+  MoreHorizontal,
+  Pencil,
+  ShieldCheck,
+  ShieldOff,
+  Trash2,
+} from 'lucide-react'
+import { Avatar } from '@/components/ui/avatar'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import { Dialog } from '@/components/ui/dialog'
+import {
+  Dropdown,
+  DropdownContent,
+  DropdownItem,
+  DropdownLabel,
+  DropdownSeparator,
+  DropdownTrigger,
+} from '@/components/ui/dropdown'
+import { FeedbackBanner } from '@/components/ui/feedback-banner'
+import { Field, Input } from '@/components/ui/input'
+import { EmptyState } from '@/components/ui/empty-state'
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 
 type User = {
   id: string
@@ -14,15 +52,16 @@ interface UserTableProps {
   users: User[]
 }
 
+const ROW_ACTIONS = 'Aksi guru'
+
 export default function UserTable({ users }: UserTableProps) {
   const [loading, setLoading] = useState<string | null>(null)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [showAddForm, setShowAddForm] = useState(false)
   const [editingUser, setEditingUser] = useState<User | null>(null)
+  const [deletingUser, setDeletingUser] = useState<User | null>(null)
 
   async function handleDeleteUser(id: string) {
-    if (!confirm('Apakah Anda yakin ingin menghapus pengguna ini? Semua data absensi terkait juga akan dihapus.')) return
-
     setLoading(id)
     setMessage(null)
 
@@ -38,6 +77,7 @@ export default function UserTable({ users }: UserTableProps) {
       }
 
       setMessage({ type: 'success', text: 'Pengguna berhasil dihapus' })
+      setDeletingUser(null)
       window.location.reload()
     } catch (err) {
       setMessage({
@@ -104,129 +144,158 @@ export default function UserTable({ users }: UserTableProps) {
   }
 
   return (
-    <div>
-      {message && (
-        <div
-          className={`mb-4 rounded-md p-3 text-sm ${
-            message.type === 'success'
-              ? 'bg-green-50 text-green-800 dark:bg-green-900/30 dark:text-green-200'
-              : 'bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-200'
-          }`}
-        >
+    <div className="flex flex-col gap-4">
+      {message ? (
+        <FeedbackBanner tone={message.type} onDismiss={() => setMessage(null)}>
           {message.text}
-        </div>
-      )}
+        </FeedbackBanner>
+      ) : null}
 
-      <div className="mb-4 flex justify-end">
-        <button
+      <div className="flex justify-end">
+        <Button
           onClick={() => setShowAddForm(!showAddForm)}
-          className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
+          aria-expanded={showAddForm}
         >
           {showAddForm ? 'Batal' : 'Tambah Guru'}
-        </button>
+        </Button>
       </div>
 
-      {showAddForm && (
+      {showAddForm ? (
         <AddUserForm onClose={() => setShowAddForm(false)} />
-      )}
+      ) : null}
 
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse border border-zinc-300 dark:border-zinc-700">
-          <thead>
-            <tr className="bg-zinc-100 dark:bg-zinc-800">
-              <th className="border border-zinc-300 px-4 py-2 text-left text-sm font-medium text-zinc-700 dark:border-zinc-700 dark:text-zinc-300">
-                Nama
-              </th>
-              <th className="border border-zinc-300 px-4 py-2 text-left text-sm font-medium text-zinc-700 dark:border-zinc-700 dark:text-zinc-300">
-                Email
-              </th>
-              <th className="border border-zinc-300 px-4 py-2 text-left text-sm font-medium text-zinc-700 dark:border-zinc-700 dark:text-zinc-300">
-                No. WhatsApp
-              </th>
-              <th className="border border-zinc-300 px-4 py-2 text-center text-sm font-medium text-zinc-700 dark:border-zinc-700 dark:text-zinc-300">
-                Role
-              </th>
-              <th className="border border-zinc-300 px-4 py-2 text-center text-sm font-medium text-zinc-700 dark:border-zinc-700 dark:text-zinc-300">
-                Aksi
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.length === 0 && (
-              <tr>
-                <td colSpan={5} className="border border-zinc-300 px-4 py-8 text-center text-sm text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">
-                  Belum ada data pengguna.
-                </td>
-              </tr>
-            )}
-            {users.map((user) => (
-              <tr key={user.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
-                <td className="border border-zinc-300 px-4 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:text-zinc-100">
-                  {user.name}
-                </td>
-                <td className="border border-zinc-300 px-4 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:text-zinc-100">
-                  {user.email || '-'}
-                </td>
-                <td className="border border-zinc-300 px-4 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:text-zinc-100">
-                  {user.phone_num || '-'}
-                </td>
-                <td className="border border-zinc-300 px-4 py-2 text-center text-sm dark:border-zinc-700">
-                  <span
-                    className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
-                      user.is_admin
-                        ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-200'
-                        : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200'
-                    }`}
-                  >
-                    {user.is_admin ? 'Admin' : 'Guru'}
-                  </span>
-                </td>
-                <td className="border border-zinc-300 px-4 py-2 text-center dark:border-zinc-700">
-                  <div className="flex flex-wrap justify-center gap-2">
-                    <button
-                      onClick={() => setEditingUser(user)}
-                      className="rounded-md bg-blue-600 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-blue-700"
-                    >
-                      Edit
-                    </button>
-                    {user.is_admin ? (
-                      <button
-                        onClick={() => handleRemoveAdmin(user.id)}
-                        disabled={loading === user.id}
-                        className="rounded-md bg-yellow-600 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-yellow-700 disabled:opacity-50"
-                      >
-                        Jadikan Guru
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => handleMakeAdmin(user.id)}
-                        disabled={loading === user.id}
-                        className="rounded-md bg-green-600 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-green-700 disabled:opacity-50"
-                      >
-                        Jadikan Admin
-                      </button>
-                    )}
-                    <button
-                      onClick={() => handleDeleteUser(user.id)}
-                      disabled={loading === user.id}
-                      className="rounded-md bg-red-600 px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
-                    >
-                      Hapus
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {editingUser && (
-        <EditUserModal
-          user={editingUser}
-          onClose={() => setEditingUser(null)}
+      {users.length === 0 ? (
+        <EmptyState
+          title="Belum ada data pengguna."
+          description="Gunakan tombol “Tambah Guru” untuk membuat akun pertama."
         />
+      ) : (
+        <Card className="overflow-hidden">
+          <Table className="min-w-[720px]">
+            <TableCaption>Daftar pengguna guru dan admin</TableCaption>
+            <TableHeader>
+              <TableRow className="hover:bg-surface-sunken">
+                <TableHead className="w-12">No</TableHead>
+                <TableHead>Nama</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>No. WhatsApp</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead className="w-16 text-right">Aksi</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {users.map((user, index) => {
+                const busy = loading === user.id
+
+                return (
+                  <TableRow key={user.id}>
+                    <TableCell className="text-text-tertiary">{index + 1}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2.5">
+                        <Avatar name={user.name} size="sm" />
+                        <span className="font-semibold text-text-primary">{user.name}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>{user.email || '-'}</TableCell>
+                    <TableCell>{user.phone_num || '-'}</TableCell>
+                    <TableCell>
+                      <Badge variant={user.is_admin ? 'accent' : 'success'}>
+                        {user.is_admin ? 'Admin' : 'Guru'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Dropdown align="end">
+                        <DropdownTrigger
+                          disabled={busy}
+                          aria-label={`${ROW_ACTIONS} untuk ${user.name}`}
+                          className="focus-ring inline-flex size-8 items-center justify-center rounded-sm border border-transparent text-text-secondary transition-colors duration-150 ease-out hover:border-border-default hover:bg-surface-hover hover:text-text-primary disabled:opacity-55"
+                        >
+                          <MoreHorizontal aria-hidden className="size-4" />
+                        </DropdownTrigger>
+
+                        <DropdownContent>
+                          <DropdownLabel>{user.name}</DropdownLabel>
+                          <DropdownSeparator />
+                          <DropdownItem
+                            onClick={() => setEditingUser(user)}
+                            disabled={busy}
+                          >
+                            <Pencil aria-hidden className="size-4 shrink-0" />
+                            Edit
+                          </DropdownItem>
+                          {user.is_admin ? (
+                            <DropdownItem
+                              onClick={() => handleRemoveAdmin(user.id)}
+                              disabled={busy}
+                            >
+                              <ShieldOff aria-hidden className="size-4 shrink-0" />
+                              Jadikan Guru
+                            </DropdownItem>
+                          ) : (
+                            <DropdownItem
+                              onClick={() => handleMakeAdmin(user.id)}
+                              disabled={busy}
+                            >
+                              <ShieldCheck aria-hidden className="size-4 shrink-0" />
+                              Jadikan Admin
+                            </DropdownItem>
+                          )}
+                          <DropdownSeparator />
+                          <DropdownItem
+                            onClick={() => setDeletingUser(user)}
+                            disabled={busy}
+                            className="text-danger-text hover:bg-danger-bg hover:text-danger-text"
+                          >
+                            <Trash2 aria-hidden className="size-4 shrink-0" />
+                            Hapus
+                          </DropdownItem>
+                        </DropdownContent>
+                      </Dropdown>
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
+        </Card>
       )}
+
+      {editingUser ? (
+        <EditUserDialog user={editingUser} onClose={() => setEditingUser(null)} />
+      ) : null}
+
+      <Dialog
+        open={deletingUser !== null}
+        onOpenChange={(open) => !open && setDeletingUser(null)}
+        size="sm"
+        title="Hapus pengguna"
+        description="Tindakan ini tidak dapat dibatalkan."
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setDeletingUser(null)}>
+              Batal
+            </Button>
+            <Button
+              variant="danger"
+              loading={loading === deletingUser?.id}
+              onClick={() => deletingUser && handleDeleteUser(deletingUser.id)}
+            >
+              Hapus
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-text-secondary">
+          Apakah Anda yakin ingin menghapus pengguna ini? Semua data absensi terkait juga akan
+          dihapus.
+        </p>
+        {deletingUser ? (
+          <p className="mt-2 flex items-center gap-2 text-sm font-semibold text-text-primary">
+            <Avatar name={deletingUser.name} size="sm" />
+            {deletingUser.name}
+          </p>
+        ) : null}
+      </Dialog>
     </div>
   )
 }
@@ -271,85 +340,47 @@ function AddUserForm({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="mb-6 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
-      <h3 className="mb-4 font-semibold text-zinc-900 dark:text-zinc-50">
-        Tambah Pengguna Baru
-      </h3>
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        {error && (
-          <div className="rounded-md bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">
-            {error}
+    <Card>
+      <CardHeader>
+        <CardTitle>Tambah Pengguna Baru</CardTitle>
+        <CardDescription>
+          Akun dibuat langsung di Supabase Auth dengan role guru.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          {error ? <FeedbackBanner tone="error">{error}</FeedbackBanner> : null}
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field id="name" label="Nama" required>
+              {(field) => <Input {...field} name="name" type="text" required autoFocus />}
+            </Field>
+            <Field id="email" label="Email" required>
+              {(field) => <Input {...field} name="email" type="email" required />}
+            </Field>
+            <Field id="password" label="Password" required>
+              {(field) => <Input {...field} name="password" type="text" required />}
+            </Field>
+            <Field id="phone_num" label="No. WhatsApp (opsional)">
+              {(field) => <Input {...field} name="phone_num" type="tel" />}
+            </Field>
           </div>
-        )}
-        <div>
-          <label htmlFor="name" className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            Nama
-          </label>
-          <input
-            id="name"
-            name="name"
-            type="text"
-            required
-            className="w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-          />
-        </div>
-        <div>
-          <label htmlFor="email" className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            Email
-          </label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            required
-            className="w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-          />
-        </div>
-        <div>
-          <label htmlFor="password" className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            Password
-          </label>
-          <input
-            id="password"
-            name="password"
-            type="text"
-            required
-            className="w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-          />
-        </div>
-        <div>
-          <label htmlFor="phone_num" className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            No. WhatsApp (opsional)
-          </label>
-          <input
-            id="phone_num"
-            name="phone_num"
-            type="tel"
-            className="w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-          />
-        </div>
-        <div className="flex gap-2">
-          <button
-            type="submit"
-            disabled={loading}
-            className="flex-1 rounded-md bg-black px-4 py-2 font-medium text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
-          >
-            {loading ? 'Menyimpan...' : 'Simpan'}
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex-1 rounded-md bg-zinc-200 px-4 py-2 font-medium text-zinc-800 transition-colors hover:bg-zinc-300 dark:bg-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-600"
-          >
-            Batal
-          </button>
-        </div>
-      </form>
-    </div>
+
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button type="submit" loading={loading} loadingText="Menyimpan...">
+              Simpan
+            </Button>
+            <Button variant="secondary" onClick={onClose}>
+              Batal
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
   )
 }
 
-function EditUserModal({ user, onClose }: { user: User; onClose: () => void }) {
+function EditUserDialog({ user, onClose }: { user: User; onClose: () => void }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -394,85 +425,48 @@ function EditUserModal({ user, onClose }: { user: User; onClose: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-md dark:bg-zinc-900">
-        <h3 className="mb-4 font-semibold text-zinc-900 dark:text-zinc-50">
-          Edit Pengguna
-        </h3>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          {error && (
-            <div className="rounded-md bg-red-50 p-3 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">
-              {error}
-            </div>
+    <Dialog
+      open
+      onOpenChange={(open) => !open && onClose()}
+      title="Edit Pengguna"
+      description="Perubahan langsung tersimpan pada profil pengguna."
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            Batal
+          </Button>
+          <Button type="submit" form="edit-user-form" loading={loading} loadingText="Menyimpan...">
+            Simpan
+          </Button>
+        </>
+      }
+    >
+      <form id="edit-user-form" onSubmit={handleSubmit} className="flex flex-col gap-4">
+        {error ? <FeedbackBanner tone="error">{error}</FeedbackBanner> : null}
+
+        <Field id="name" label="Nama" required>
+          {(field) => (
+            <Input {...field} name="name" type="text" required defaultValue={user.name} autoFocus />
           )}
-          <div>
-            <label htmlFor="name" className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              Nama
-            </label>
-            <input
-              id="name"
-              name="name"
-              type="text"
-              required
-              defaultValue={user.name}
-              className="w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-            />
-          </div>
-          <div>
-            <label htmlFor="email" className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              Email
-            </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              required
-              defaultValue={user.email || ''}
-              className="w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-            />
-          </div>
-          <div>
-            <label htmlFor="phone_num" className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              No. WhatsApp
-            </label>
-            <input
-              id="phone_num"
-              name="phone_num"
-              type="tel"
-              defaultValue={user.phone_num || ''}
-              className="w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-            />
-          </div>
-          <div>
-            <label htmlFor="password" className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-              Password Baru (opsional)
-            </label>
-            <input
-              id="password"
-              name="password"
-              type="text"
-              className="w-full rounded-md border border-zinc-300 px-3 py-2 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-              placeholder="Kosongkan jika tidak ingin mengubah"
-            />
-          </div>
-          <div className="flex gap-2">
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex-1 rounded-md bg-black px-4 py-2 font-medium text-white transition-colors hover:bg-zinc-800 disabled:opacity-50 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
-            >
-              {loading ? 'Menyimpan...' : 'Simpan'}
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 rounded-md bg-zinc-200 px-4 py-2 font-medium text-zinc-800 transition-colors hover:bg-zinc-300 dark:bg-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-600"
-            >
-              Batal
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        </Field>
+        <Field id="email" label="Email" required>
+          {(field) => (
+            <Input {...field} name="email" type="email" required defaultValue={user.email || ''} />
+          )}
+        </Field>
+        <Field id="phone_num" label="No. WhatsApp">
+          {(field) => (
+            <Input {...field} name="phone_num" type="tel" defaultValue={user.phone_num || ''} />
+          )}
+        </Field>
+        <Field
+          id="password"
+          label="Password Baru (opsional)"
+          hint="Kosongkan jika tidak ingin mengubah"
+        >
+          {(field) => <Input {...field} name="password" type="text" />}
+        </Field>
+      </form>
+    </Dialog>
   )
 }

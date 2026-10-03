@@ -1,8 +1,9 @@
-import { createServerClient } from "@supabase/ssr";
+import { createServerClient, parseCookieHeader } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 export const createClient = (cookieStore: Awaited<ReturnType<typeof cookies>>) => {
   return createServerClient(
@@ -11,13 +12,23 @@ export const createClient = (cookieStore: Awaited<ReturnType<typeof cookies>>) =
     {
       cookies: {
         getAll() {
-          return cookieStore.getAll()
+          return parseCookieHeader(cookieStore.toString());
         },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options))
-          } catch {
-          }
+        setAll() {
+        },
+      },
+    },
+  );
+};
+
+export const createServiceClient = () => {
+  return createServerClient(
+    supabaseUrl!,
+    supabaseServiceRoleKey!,
+    {
+      cookies: {
+        getAll() {
+          return [];
         },
       },
     },
